@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user identity, stats, and personal splits.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "email": { "type": "string" },
+        "bio": { "type": "string" },
+        "rank": { "type": "string", "enum": ["Novice", "Intermediate", "Advanced", "Elite", "Legendary"] },
+        "level": { "type": "number" },
+        "totalSets": { "type": "number" },
+        "streak": { "type": "number" },
+        "topLifts": {
+          "type": "object",
+          "properties": {
+            "bench": { "type": "number" },
+            "squat": { "type": "number" },
+            "deadlift": { "type": "number" },
+            "overhead": { "type": "number" }
+          }
+        },
+        "customSplits": { "type": "array" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["uid", "rank", "level"]
+    },
+    "PublicSplit": {
+      "title": "Public Split",
+      "description": "Workout presets shared with the community.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "authorUid": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "workoutDays": { "type": "array" },
+        "schedule": { "type": "object" },
+        "isPublic": { "type": "boolean" },
+        "downloads": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "name", "authorUid", "isPublic"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profile documents"
+    },
+    "/publicSplits/{splitId}": {
+      "schema": "PublicSplit",
+      "description": "Community shared workout splits"
+    }
+  }
+}
