@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string
+    //   - photoURL: string
+    //   - email: string
+    //   - bio: string
+    //   - rank: string (enum)
+    //   - level: number
+    //   - totalSets: number
+    //   - streak: number
+    //   - topLifts: map
+    //   - macroGoals: map
+    //   - macroCurrent: map
+    //   - customSplits: list
+    //   - createdAt: number
+    //
+    // Collection: users/{uid}/vault
+    // Document ID: {photoId}
+    // Fields:
+    //   - url: string
+    //   - date: number
+    //
+    // Collection: publicSplits
+    // Document ID: {splitId}
+    // Fields:
+    //   - id: string
+    //   - name: string
+    //   - authorUid: string
+    //   - authorName: string
+    //   - authorPhoto: string
+    //   - workoutDays: list
+    //   - schedule: map
+    //   - isPublic: bool
+    //   - downloads: number
+    //   - createdAt: number
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "codesnithin@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'rank', 'level']) &&
+             data.uid == request.auth.uid &&
+             data.rank in ['Novice', 'Intermediate', 'Advanced', 'Elite', 'Legendary'] &&
+             data.level is number &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() < 500));
+    }
+
+    function isValidPublicSplit(data) {
+      return data.keys().hasAll(['id', 'name', 'authorUid', 'isPublic']) &&
+             data.authorUid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.isPublic == true;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isAuthenticated(); 
+      allow create: if isOwner(uid) && isValidUser(request.resource.data);
+      allow update: if isOwner(uid) && isValidUser(request.resource.data) && 
+                    request.resource.data.uid == resource.data.uid;
+
+      // Private Progress Vault
+      match /vault/{photoId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    match /publicSplits/{splitId} {
+      allow read: if true; // Public splits are readable by everyone
+      allow create: if isAuthenticated() && isValidPublicSplit(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (request.auth.uid == resource.data.authorUid && isValidPublicSplit(request.resource.data)) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['downloads']) && 
+         request.resource.data.downloads == resource.data.downloads + 1)
+      );
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.authorUid || isAdmin());
+    }
+  }
+}
